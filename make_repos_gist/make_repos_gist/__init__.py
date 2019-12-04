@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 from github import Github
@@ -43,7 +43,7 @@ class RepoPatch:
 
 
 def patch_repo_file(repo_content, patches):
-    repos = yaml.load(repo_content)
+    repos = yaml.safe_load(repo_content)
     for patch in patches:
         for repo in repos['repositories']:
             if repo == patch.name:
@@ -117,5 +117,4 @@ def main(args=None):
 
 
 if __name__ == '__main__':
-    import sys
-    main(sys.argv)
+    main()

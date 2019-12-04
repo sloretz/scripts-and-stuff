@@ -32,7 +32,7 @@ make-repos-gist https://github.com/ros2/rmw_fastrtps/pull/248 https://github.com
 python3 ./make_repos_gist/setup.py install
 ```
 
-After installing, put a githup API key in the system keyring that is capable of creating gists.
+After installing, put a github API key in the system keyring that is capable of creating gists.
 
 ```
 # This will prompt for a 'password'. Paste the github api token.
