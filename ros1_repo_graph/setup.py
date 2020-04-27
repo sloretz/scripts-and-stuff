@@ -5,7 +5,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         'graphviz',
-        'git+https://github.com/ros-infrastructure/ros_buildfarm.git',
+        'ros_buildfarm @ git+https://github.com/ros-infrastructure/ros_buildfarm.git',
     ],
     author='Shane Loretz',
     author_email='shane.loretz@gmail.com',
