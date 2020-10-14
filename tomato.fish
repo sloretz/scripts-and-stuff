@@ -48,7 +48,7 @@ echo 3 minutes to go
 sleep 60
 echo 2 minutes to go
 sleep 60
-echo 1 minutes to go
+echo 1 minute to go
 sleep 60
 echo You did it!
 
