@@ -23,6 +23,7 @@ else:
 built_packages = {
     "focal-amd64": "http://repositories.ros.org/ubuntu/building/dists/focal/main/binary-amd64/Packages",
     "focal-arm64": "http://repositories.ros.org/ubuntu/building/dists/focal/main/binary-arm64/Packages",
+    "focal-armhf": "http://repositories.ros.org/ubuntu/building/dists/focal/main/binary-armhf/Packages",
     "buster-amd64": "http://repositories.ros.org/ubuntu/building/dists/buster/main/binary-amd64/Packages",
     "buster-arm64": "http://repositories.ros.org/ubuntu/building/dists/buster/main/binary-arm64/Packages",
 }
