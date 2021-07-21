@@ -40,4 +40,4 @@ for name, url in built_packages.items():
             if not line.endswith("-dbgsym"):
                 count += 1
 
-    print(f'{name}: {count} packages built')
+    print(f'{name}: {count} packages built (0.9 * count == {int(0.9 * count)})')
