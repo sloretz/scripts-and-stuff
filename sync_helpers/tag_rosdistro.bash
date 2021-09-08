@@ -3,6 +3,7 @@
 cd /tmp
 git clone git@github.com:ros/rosdistro.git
 cd rosdistro/
+git pull
 git log -n 1 -- noetic/distribution.yaml
 git checkout `git log -n 1 --format=format:%H -- noetic/distribution.yaml`
 git tag "noetic/`date +%Y-%m-%d`"
