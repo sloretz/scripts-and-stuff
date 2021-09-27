@@ -11,7 +11,7 @@ import requests
 title_template = "New Packages for Noetic ${sync_date}"
 
 
-body_template = """We’re happy to announce **${num_added}** and **${num_updated}** updates are now available in ROS Noetic. This sync was tagged as [`noetic/${sync_date}`](https://github.com/ros/rosdistro/blob/noetic/${sync_date}/noetic/distribution.yaml).
+body_template = """We’re happy to announce **${num_added}** new packages and **${num_updated}** updates are now available in ROS Noetic. This sync was tagged as [`noetic/${sync_date}`](https://github.com/ros/rosdistro/blob/noetic/${sync_date}/noetic/distribution.yaml).
 
 Thank you to every maintainer and contributor who made these updates available!
 
