@@ -40,9 +40,10 @@ def to_csv(issues):
     for issue in issues:
         gh_url = parse_url(issue.html_url)
         csv_writer.writerow((
-            f"{gh_url.org}/{gh_url.repo}#{gh_url.number}",
+            "FALSE",  # For a checkbox
             issue.title,
             issue.html_url,
+            f"{gh_url.org}/{gh_url.repo}#{gh_url.number}",
             str(issue.state),
             gh_url.url_type,
             issue.updated_at,
@@ -89,6 +90,7 @@ def main():
     parser.add_argument('start_date')
     args = parser.parse_args();
 
+    # Output a CSV file to stdout
     for author in AUTHORS:
         print(to_csv(query_by_author(author, args.start_date)))
 
