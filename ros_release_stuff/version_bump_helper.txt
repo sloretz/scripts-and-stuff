@@ -1,0 +1,4 @@
+find . -name package.xml -o -name setup.cfg -o -name setup.py | xargs grep "1.5.0" --color=auto
+
+
+find . -name package.xml -o -name setup.cfg -o -name setup.py | xargs sed -i s/1.5.0/2.0.0/
