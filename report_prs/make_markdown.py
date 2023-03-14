@@ -34,10 +34,10 @@ def row_to_md(
             raise ValueError(f"Unknown type: ${type}")
     else:
         raise ValueError(f"Unknown state: ${state}")
-    md = [
-        f'* {title} [{short_link}]({url}) ({status})'
+    return [
+        f'* [{short_link}]({url})',
+        f'   * {title} ({status})',
     ]
-    return '\n'.join(md)
 
 
 def get_repo(csv_row):
@@ -60,7 +60,8 @@ def to_md(filename):
     for repo in sorted(repo_rows.keys()):
         report.append(f"* {repo}")
         for row in repo_rows[repo]:
-            report.append("   " + row_to_md(*row))
+            for md_row in row_to_md(*row):
+                report.append("   " + md_row)
     return '\n'.join(report)
 
 def main():

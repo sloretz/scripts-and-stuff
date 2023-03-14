@@ -19,11 +19,15 @@ def get_api_key():
     return key
 
 AUTHORS = [
-    "hidmic",
+#    "hidmic",
     "sloretz",
+#    "methylDragon",
     "cottsay",
-    "aaronchongth",
+#    "aaronchongth",
     "gbiggs",
+    "adityapande-1995",
+    "arjo129",
+    "mxgrey",
 ]
 
 GithubUrl = namedtuple("GithubUrl", ["org", "repo", "url_type",  "number"])
@@ -78,11 +82,13 @@ def query_by_author(author, start_date):
     query_str = f'author:{author} updated:>{start_date}'
 
     g = Github(get_api_key())
-    issues = g.search_issues(query_str, sort="created", order="asc")
 
-    filtered_issues = [issue for issue in issues if filter_issue(issue)]
-    yield from sorted(
-        filtered_issues, key=lambda issue: parse_url(issue.html_url).repo)
+    for extra in (' is:issue', ' is:pull-request'):
+        issues = g.search_issues(query_str + extra, sort="created", order="asc")
+
+        filtered_issues = [issue for issue in issues if filter_issue(issue)]
+        yield from sorted(
+            filtered_issues, key=lambda issue: parse_url(issue.html_url).repo)
 
 
 def main():
