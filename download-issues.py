@@ -6,29 +6,50 @@ import time
 import keyring
 import os
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from functools import lru_cache
+from typing import List, Dict, Any
 
 @dataclass
 class Repository:
     owner: str
     name: str
 
+@dataclass
+class GitHubIssue:
+    title: str
+    body: str
+    author: str
+    comments: List[Dict[str, str]]
+
+    @classmethod
+    def from_node(cls, node: Dict[str, Any]) -> "GitHubIssue":
+        """Constructs a GitHubIssue from a GraphQL issue node."""
+        return cls(
+            title=node.get('title', ''),
+            body=node.get('body', ''),
+            author=node['author']['login'] if node.get('author') else "Ghost",
+            comments=[
+                {
+                    "author": c['author']['login'] if c.get('author') else "Ghost",
+                    "body": c.get('body', '')
+                } for c in node.get('comments', {}).get('nodes', [])
+            ]
+        )
+
+    def to_json_dict(self) -> Dict[str, Any]:
+        """Converts the dataclass instance to a dictionary for JSON writing."""
+        return asdict(self)
+
 @lru_cache(maxsize=1)
 def get_api_key():
-    """
-    Retrieves the GitHub token from the system keyring.
-    Cached so the keyring is only accessed once.
-    """
     key = keyring.get_password("github-api-token", "may-search-github")
     if key is None:
         raise RuntimeError('Failed to get github api key. Ensure it is set in keyring.')
     return key
 
 def make_graphql_request(query, variables):
-    """Handles authentication, URL management, and rate limiting internally."""
     url = "https://api.github.com/graphql"
-    # This call now hits the cache after the first execution
     token = get_api_key()
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -55,22 +76,18 @@ def make_graphql_request(query, variables):
         else:
             raise Exception(f"Query failed with status {response.status_code}: {response.text}")
 
-def get_all_repo_issues(repo: Repository):
-    """Fetches all open issues and comments for a specific Repository dataclass."""
+def get_all_repo_issues(repo: Repository) -> List[GitHubIssue]:
+    """Fetches and parses issues into GitHubIssue dataclasses."""
     query = """
     query($owner: String!, $name: String!, $issueCursor: String) {
       repository(owner: $owner, name: $name) {
         issues(states: OPEN, first: 50, after: $issueCursor) {
           pageInfo { hasNextPage, endCursor }
           nodes {
-            title
-            body
+            title, body
             author { login }
             comments(first: 50) {
-              nodes {
-                body
-                author { login }
-              }
+              nodes { body, author { login } }
             }
           }
         }
@@ -90,17 +107,8 @@ def get_all_repo_issues(repo: Repository):
 
         issue_data = data['issues']
         for node in issue_data['nodes']:
-            repo_issues.append({
-                "title": node['title'],
-                "author": node['author']['login'] if node['author'] else "Ghost",
-                "body": node['body'],
-                "comments": [
-                    {
-                        "author": c['author']['login'] if c['author'] else "Ghost",
-                        "body": c['body']
-                    } for c in node['comments']['nodes']
-                ]
-            })
+            # Use the factory method to create the dataclass instance
+            repo_issues.append(GitHubIssue.from_node(node))
 
         if not issue_data['pageInfo']['hasNextPage']:
             break
@@ -108,35 +116,28 @@ def get_all_repo_issues(repo: Repository):
         
     return repo_issues
 
-def write_issues_to_file(issues, repo: Repository, output_dir):
-    """Saves the issue list to a JSON file."""
+def write_issues_to_file(issues: List[GitHubIssue], repo: Repository, output_dir: str):
+    """Saves the GitHubIssue list to a JSON file using the to_json_dict method."""
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     
     filename = f"{repo.owner}__{repo.name}.json"
     file_path = os.path.join(output_dir, filename)
     
+    # Convert list of dataclasses to list of dictionaries
+    json_data = [issue.to_json_dict() for issue in issues]
+    
     with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(issues, f, indent=4, ensure_ascii=False)
+        json.dump(json_data, f, indent=4, ensure_ascii=False)
     
     return file_path
 
 def parse_arguments():
-    """Parses command line arguments and converts repo strings into Repository dataclasses."""
     parser = argparse.ArgumentParser(description="Download GitHub issues via GraphQL API")
-    parser.add_argument(
-        "--output", 
-        default="github_exports", 
-        help="Directory to save the JSON results (default: github_exports)"
-    )
-    parser.add_argument(
-        "repos", 
-        nargs="+", 
-        help="One or more repository names in 'org/repo' format"
-    )
+    parser.add_argument("--output", default="github_exports", help="Output directory")
+    parser.add_argument("repos", nargs="+", help="Repos in 'org/repo' format")
     
     args = parser.parse_args()
-    
     processed_repos = []
     for r in args.repos:
         if "/" not in r:
@@ -148,18 +149,13 @@ def parse_arguments():
     return args
 
 def main():
-    """Main execution flow."""
     args = parse_arguments()
-
     for repo in args.repos:
         try:
             print(f"Processing: {repo.owner}/{repo.name}...")
-            
             issues = get_all_repo_issues(repo)
             saved_path = write_issues_to_file(issues, repo, args.output)
-            
             print(f"Successfully wrote {len(issues)} issues to {saved_path}")
-            
         except Exception as e:
             print(f"Failed to process {repo.owner}/{repo.name}: {e}")
 
