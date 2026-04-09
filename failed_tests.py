@@ -41,13 +41,13 @@ def find_failed_tests(log_lines):
     gtest_re = re.compile(r'\[\s*FAILED\s*\]\s+([^\s]+)')
     
     # Matches PyTest / Python Unittest failures: e.g. "FAIL: test_name" or "ERROR: test_name"
-    unittest_re = re.compile(r'(?:FAIL|ERROR):\s+([^\s]+)')
+    unittest_re = re.compile(r'^(?:\d+:\s+)?(?:FAIL|ERROR):\s+([^\s]+)')
     
     # Matches raw PyTest summary failures: e.g. "FAILED path/to/file.py::test_name"
     pytest_summary_re = re.compile(r'FAILED\s+.*::([^\s]+)')
     
     for line in log_lines:
-        if "tests, listed below" in line:
+        if "listed below" in line:
             continue
         m1 = gtest_re.search(line)
         if m1 and "ms)" not in m1.group(1):
