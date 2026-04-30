@@ -172,7 +172,7 @@ def main():
             sys.exit(1)
 
     todays_date_and_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"# ROS {args.rosdistro.capitalize()} release distribution file")
+    print(f"# ROS {args.rosdistro.capitalize()} repos file")
     print(f"# Generated on {todays_date_and_time}")
 
     for pin_name, pin_version in pins.items():
