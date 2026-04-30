@@ -186,7 +186,7 @@ def main():
             latest_version = latest_release_tag_by_source_url(args.rosdistro, repo.url)
             
         if not latest_version:
-            print(f"# WARNING: Did not find a release for: {repo.url} in {args.rosdistro}")
+            print(f"# WARNING: Did not find a release for: {repo.name} in {args.rosdistro}")
             continue
         # Success, include this repo in the output
         repo.version = latest_version
@@ -194,7 +194,8 @@ def main():
 
     yaml_data = repository_list_to_yaml(output_repos)
     yaml_string = yaml.dump(yaml_data, sort_keys=False)
-    print(yaml_string)
+    # Remove extra newline at end of file for validation on ros2/ros2
+    print(yaml_string.rstrip())
 
 
 if __name__ == "__main__":
