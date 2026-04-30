@@ -18,9 +18,45 @@ def fetch_distribution(distro_name):
     return get_distribution_file(index, distro_name)
 
 
-def latest_release_by_source_url(distro_name, target_git_url):
+def get_track(url):
+    response = requests.get(url)
+    response.raise_for_status()
+    return yaml.safe_load(response.text)
+
+
+def release_tag_from_track(rosdistro, release_url):
+    # Convert git URL to HTTP url for tracks.yaml
+    if release_url.endswith('.git'):
+        release_url = release_url[:-4]
+    if 'github.com' in release_url:
+        release_url = release_url.replace('github.com', 'raw.githubusercontent.com')
+    url = f"{release_url}/refs/heads/master/tracks.yaml"
+
+    try:
+        data = get_track(url)
+    except Exception as e:
+        print(f"# WARNING: Failed to download tracks.yaml from {url}: {e}")
+        return None
+
+    tracks = data.get('tracks', {})
+    track = tracks.get(rosdistro)
+    if not track:
+        print(f"# WARNING: Track '{rosdistro}' not found in tracks.yaml")
+        return None
+
+    release_tag_template = track.get('release_tag')
+    last_version = track.get('last_version')
+
+    if not release_tag_template or not last_version:
+        return None
+
+    tag = release_tag_template.replace(':{version}', last_version)
+    return tag
+
+
+def latest_release_tag_by_source_url(distro_name, target_git_url):
     """
-    Finds the current release version of a ROS package based on its source repository URL.
+    Finds the current release tag of a ROS package based on its source repository URL.
 
     Args:
         distro_name (str): The name of the ROS distribution to search 
@@ -29,8 +65,7 @@ def latest_release_by_source_url(distro_name, target_git_url):
             to look up.
 
     Returns:
-        str: The release version string (e.g., '16.0.9-1') if the repository 
-            and a corresponding release entry are found.
+        str: The release tag string (e.g., 'release/rolling/rclcpp/16.0.9-1') if found.
         None: If the URL is not found in the distribution or if the 
             repository exists but has no release entry.
     """
@@ -46,7 +81,7 @@ def latest_release_by_source_url(distro_name, target_git_url):
             # Get the release entry corresponding to this repository
             release_repo = repo_data.release_repository
             if release_repo:
-                return release_repo.version
+                return release_tag_from_track(distro_name, release_repo.url)
             else:
                 # No release, return None
                 return None
@@ -148,7 +183,7 @@ def main():
         if repo.name in pins:
             latest_version = pins[repo.name]
         else:
-            latest_version = latest_release_by_source_url(args.rosdistro, repo.url)
+            latest_version = latest_release_tag_by_source_url(args.rosdistro, repo.url)
             
         if not latest_version:
             print(f"# WARNING: Did not find a release for: {repo.url} in {args.rosdistro}")
