@@ -69,6 +69,7 @@ def main():
         sync_date += timedelta(days=1)
     mapping['sync_target_date'] = sync_date.strftime("%Y-%m-%d")
 
+    print('https://discourse.openrobotics.org/c/ros/release/')
     print('----------')
     print(Template(title_template).substitute(mapping))
     print('----------')
