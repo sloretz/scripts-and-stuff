@@ -33,7 +33,7 @@ zulip_template = "${distro_title} packages have been synced: https://discourse.o
 reply_template = "The [sync is out](https://discourse.openrobotics.org/t/new-packages-for-${distro_lower}-${sync_date}/) :tada: . Now is a great time to make releases for the next sync"
 
 
-arch_details_template = """<details><summary>Updates to Ubuntu ${suite_title} (${arch})</summary>
+arch_details_template = """[details=Updates to Ubuntu ${suite_title} (${arch})]
 
 ### Added Packages [${num_added}]:
 
@@ -46,7 +46,7 @@ ${updated_packages}
 ### Removed Packages [${num_removed}]:
 
 ${removed_packages}
-</details>"""
+[/details]"""
 
 
 def non_dbgsym_pkgs(content, distro_lower):
