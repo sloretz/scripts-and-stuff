@@ -215,12 +215,23 @@ def test_graphviz_layout_and_fit_transform() -> None:
     dot_str = render_graphviz_dot(dags)
     assert '"rtabmap_conversions" -> "rtabmap";' in dot_str
     assert '"rtabmap" -> "gtsam";' in dot_str
+    assert (
+        'label="pose_cov_ops\\n0.4.0-3 -> 0.5.0-1\\n[NEW RELEASE]\\n[ROOT FAILING]"'
+        in dot_str
+    )
 
     layout = compute_graphviz_layout(dags)
     assert layout.width > 0
     assert layout.height > 0
     assert len(layout.nodes) == 4
     assert len(layout.edges) == 2
+    nodes_by_name = {n.name: n for n in layout.nodes}
+    assert nodes_by_name["pose_cov_ops"].label.splitlines() == [
+        "pose_cov_ops",
+        "0.4.0-3 -> 0.5.0-1",
+        "[NEW RELEASE]",
+        "[ROOT FAILING]",
+    ]
 
     # Wide graph in square window -> fills horizontally (offset_x == 0, offset_y > 0)
     scale_h, off_x_h, off_y_h = compute_fit_transform(
@@ -254,4 +265,5 @@ def test_cli_gui_arg() -> None:
         ]
     )
     assert args.gui is True
+
 

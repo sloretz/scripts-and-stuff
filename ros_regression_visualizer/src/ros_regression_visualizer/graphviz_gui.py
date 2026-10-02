@@ -100,18 +100,17 @@ class GraphLayout:
 
 
 def _format_dot_node_label(node: GraphNode) -> str:
-    """Format a multi-line label for a Graphviz node showing both release and build status."""
+    """Format a multi-line label for a Graphviz node with version and tags on separate lines."""
     lines = [node.name]
     if node.is_new_release:
         if node.previous_version and node.version:
-            lines.append(f"{node.previous_version} -> {node.version} [NEW RELEASE]")
+            lines.append(f"{node.previous_version} -> {node.version}")
         elif node.version:
-            lines.append(f"new: {node.version} [NEW RELEASE]")
-        else:
-            lines.append("[NEW RELEASE]")
-    elif node.version:
-        lines.append(f"{node.version} [UNCHANGED]")
+            lines.append(f"new: {node.version}")
+        lines.append("[NEW RELEASE]")
     else:
+        if node.version:
+            lines.append(node.version)
         lines.append("[UNCHANGED]")
 
     if node.is_root_failing:
@@ -122,6 +121,18 @@ def _format_dot_node_label(node: GraphNode) -> str:
         lines.append("[BUILT]")
 
     return "\n".join(lines)
+
+
+def _estimate_node_dimensions_inches(label: str) -> tuple[float, float]:
+    """Estimate conservative (width_inches, height_inches) so Graphviz boxes fit Tkinter text."""
+    lines = label.splitlines() or [label]
+    max_chars = max(len(line) for line in lines)
+    num_lines = len(lines)
+    # At ~11px Helvetica (72 pts/inch), ~7.5 pts per char + 24 pts horizontal padding
+    width_pts = max_chars * 7.5 + 24.0
+    # ~15 pts per line + 18 pts vertical padding
+    height_pts = num_lines * 15.0 + 18.0
+    return width_pts / 72.0, height_pts / 72.0
 
 
 def render_graphviz_dot(
@@ -141,7 +152,7 @@ def render_graphviz_dot(
     lines = [
         "digraph G {",
         f"  rankdir={rankdir};",
-        '  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10, margin="0.15,0.08"];',
+        '  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, margin="0.22,0.12"];',
         "  edge [arrowhead=normal];",
     ]
 
@@ -155,8 +166,12 @@ def render_graphviz_dot(
         lines.append('  empty [label="No matching failing packages found"];')
     else:
         for pkg_name, node in sorted(merged_nodes.items()):
-            label = _format_dot_node_label(node).replace('"', '\\"').replace("\n", "\\n")
-            lines.append(f'  "{pkg_name}" [label="{label}"];')
+            raw_label = _format_dot_node_label(node)
+            min_w, min_h = _estimate_node_dimensions_inches(raw_label)
+            label = raw_label.replace('"', '\\"').replace("\n", "\\n")
+            lines.append(
+                f'  "{pkg_name}" [label="{label}", width={min_w:.3f}, height={min_h:.3f}];'
+            )
 
         for src, dst in merged_edges:
             lines.append(f'  "{src}" -> "{dst}";')
@@ -341,7 +356,7 @@ def _ensure_display_env() -> None:
 class RegressionVisualizerGUI:
     """Interactive Tkinter GUI window displaying a Graphviz-laid-out DAG."""
 
-    BASE_FONT_PIXEL_SIZE = 13
+    BASE_FONT_PIXEL_SIZE = 11
 
     def __init__(
         self,
@@ -394,8 +409,10 @@ class RegressionVisualizerGUI:
         self._drag_last_y: int = 0
         self._initial_fit_done: bool = False
 
+        self._viewport_rect_id: int = 0
         self._text_items: list[int] = []
         self._rect_items: list[tuple[int, float]] = []
+        self._node_items: list[tuple[LayoutNode, int, int]] = []
         self._edge_items: list[int] = []
 
         self._draw_initial_items()
@@ -406,7 +423,12 @@ class RegressionVisualizerGUI:
         self.canvas.delete("all")
         self._text_items.clear()
         self._rect_items.clear()
+        self._node_items.clear()
         self._edge_items.clear()
+
+        self._viewport_rect_id = self.canvas.create_rectangle(
+            0, 0, 1, 1, fill="", outline=""
+        )
 
         # Draw edges first so nodes sit on top
         for edge in self.layout.edges:
@@ -416,7 +438,7 @@ class RegressionVisualizerGUI:
             line_id = self.canvas.create_line(
                 *flat_coords,
                 fill="#555555",
-                width=1.5,
+                width=2,
                 arrow=tk.LAST,
                 arrowshape=(8, 10, 4),
             )
@@ -435,7 +457,7 @@ class RegressionVisualizerGUI:
             rect_kwargs: dict[str, Any] = {
                 "fill": style["fill"],
                 "outline": style["outline"],
-                "width": style["width"],
+                "width": max(1, int(round(float(style["width"])))),
             }
             if style["dash"]:
                 rect_kwargs["dash"] = style["dash"]
@@ -452,10 +474,18 @@ class RegressionVisualizerGUI:
                 justify=tk.CENTER,
             )
             self._text_items.append(text_id)
+            self._node_items.append((node, rect_id, text_id))
 
         self.scale = 1.0
         self.offset_x = 0.0
         self.offset_y = 0.0
+        self._ensure_node_boxes_contain_text()
+
+    def _invalidate_viewport(self) -> None:
+        """Force Tk Canvas to mark the entire visible viewport dirty for redraw."""
+        cw = max(1, self.canvas.winfo_width())
+        ch = max(1, self.canvas.winfo_height())
+        self.canvas.coords(self._viewport_rect_id, 0, 0, cw, ch)
 
     def _bind_events(self) -> None:
         """Bind mouse pan, wheel zoom, and initial window configure events."""
@@ -500,6 +530,7 @@ class RegressionVisualizerGUI:
         self.canvas.move("all", dx, dy)
         self.offset_x += dx
         self.offset_y += dy
+        self._invalidate_viewport()
 
     def zoom_at(self, pivot_x: float, pivot_y: float, factor: float) -> None:
         """Zoom all canvas items by `factor` around `(pivot_x, pivot_y)`."""
@@ -513,8 +544,36 @@ class RegressionVisualizerGUI:
         self.offset_y = pivot_y + (self.offset_y - pivot_y) * factor
         self._update_scaled_styles()
 
+    def _ensure_node_boxes_contain_text(self) -> None:
+        """Ensure every node rectangle encloses its rendered text with padding."""
+        pad_x = max(4.0, 14.0 * self.scale)
+        pad_y = max(3.0, 10.0 * self.scale)
+        for node, rect_id, text_id in self._node_items:
+            cx = node.x * self.scale + self.offset_x
+            cy = node.y * self.scale + self.offset_y
+            gw = node.width * self.scale
+            gh = node.height * self.scale
+
+            bbox = self.canvas.bbox(text_id)
+            if bbox is not None:
+                tw = float(bbox[2] - bbox[0])
+                th = float(bbox[3] - bbox[1])
+                w = max(gw, tw + pad_x)
+                h = max(gh, th + pad_y)
+            else:
+                w = gw
+                h = gh
+
+            self.canvas.coords(
+                rect_id,
+                cx - w / 2.0,
+                cy - h / 2.0,
+                cx + w / 2.0,
+                cy + h / 2.0,
+            )
+
     def _update_scaled_styles(self) -> None:
-        """Update font sizes, border widths, and arrow shapes to match `self.scale`."""
+        """Update font sizes, border widths, arrow shapes, and box bounds to match `self.scale`."""
         pixel_font = int(round(self.BASE_FONT_PIXEL_SIZE * self.scale))
         if pixel_font < 3:
             for text_id in self._text_items:
@@ -525,10 +584,10 @@ class RegressionVisualizerGUI:
                 self.canvas.itemconfigure(text_id, state="normal", font=font_spec)
 
         for rect_id, base_w in self._rect_items:
-            scaled_w = max(1.0, base_w * self.scale)
+            scaled_w = max(1, int(round(base_w * self.scale)))
             self.canvas.itemconfigure(rect_id, width=scaled_w)
 
-        edge_w = max(1.0, 1.5 * self.scale)
+        edge_w = max(1, int(round(1.5 * self.scale)))
         a1 = max(3, int(round(8 * self.scale)))
         a2 = max(4, int(round(10 * self.scale)))
         a3 = max(2, int(round(4 * self.scale)))
@@ -536,6 +595,9 @@ class RegressionVisualizerGUI:
             self.canvas.itemconfigure(
                 edge_id, width=edge_w, arrowshape=(a1, a2, a3)
             )
+
+        self._ensure_node_boxes_contain_text()
+        self._invalidate_viewport()
 
     def reset_view(self) -> None:
         """Reset zoom and pan so the diagram fills the window horizontally or vertically."""
